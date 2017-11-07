@@ -1,6 +1,9 @@
 import numpy as np
-def sigmoid(x):
-    return x
+class sigmoid:
+    def cal(self,x):
+        return x*2
+    def dif(self,x):
+        return x*3
 class my_nn:
     """
 
@@ -9,9 +12,10 @@ class my_nn:
                  neuron_input, hidden_layers,
                  neuron_per_layer,
                  neuron_output,
-                 gradient_step = 0.5,
+                 neuron_function=sigmoid,
+                 gradient_step = 0.25,
                  random_method = np.random.rand,
-                 neuron_function = sigmoid):
+                 loss_function = 'default'):
         """
         IMPORTANT: the weight corresponding to each layer locates before the layer. for example,
         the weight for the first hidden layer is the weight used to multiply the input-layer-output
@@ -38,7 +42,7 @@ class my_nn:
                                 self.structure[selected_layer + 1])
                     for selected_layer in range(hidden_layers + 1)]
         self.neuron = neuron_function
-        self.neuron_v = np.vectorize(neuron_function)
+        #self.neuron_v = np.vectorize(neuron_function)
         # store output for each layer, used for backprop
         self.h = [np.empty([neurons]) for neurons in self.structure[1:len(self.structure)]]
         self.step = gradient_step
@@ -53,7 +57,7 @@ class my_nn:
         #self.h = [np.dot(input,self.w[layer]) for layer in range(len(self.structure)-1)]
         for layer in range(len(self.structure) - 1):
             intermediate_x = np.dot(x, self.w[layer])
-            x = self.neuron_v(intermediate_x)
+            x = self.neuron(intermediate_x)
             self.h[layer] = x
         return x
     def train(self,x,y,
