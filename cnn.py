@@ -135,13 +135,13 @@ def main():
     print("test_x is loaded")
 
     # hyper parameter
-    batch_size = 128
+    batch_size = 64
     num_classes = 40
-    epochs1 = 25
+    epochs1 = 30
     epochs2 = 50
     aug_epochs1 = 50
-    aug_epochs2 = 100
-    test_size = 0.1
+    aug_epochs2 = 400
+    test_size = 0.05
     # input image dimensions
     img_rows, img_cols = 64, 64
 
@@ -168,7 +168,7 @@ def main():
     y_train = keras.utils.to_categorical(y_train, num_classes)
     y_test = keras.utils.to_categorical(y_test, num_classes)
 
-##########################################  CNN Model   ################################################
+##########################################    CNN Model   ################################################
     mean_px = x_train.mean().astype(np.float32)
     std_px = x_train.std().astype(np.float32)
 
@@ -197,6 +197,9 @@ def main():
         Dense(1024, activation='relu'),
         BatchNormalization(),
         Dropout(0.5),
+        Dense(1024, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.5),
         Dense(40, activation='softmax')
     ])
 
@@ -205,7 +208,7 @@ def main():
                   metrics=['accuracy'])
 
 ################################################    Training    ################################################
-    earlyStopping = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.005, patience=10, verbose=0, mode='min')
+    earlyStopping = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.001, patience=30, verbose=0, mode='min')
 
     model.fit(x_train, y_train,
               batch_size=batch_size,
@@ -214,6 +217,7 @@ def main():
               validation_data=(x_test, y_test),
               class_weight=class_weights,
               callbacks=[earlyStopping])
+
     model.optimizer.lr = 0.0001
     model.fit(x_train, y_train,
               batch_size=batch_size,
@@ -238,7 +242,7 @@ def main():
     model.optimizer.lr = 0.0001
     model.fit_generator(batches, steps_per_epoch=x_train.shape[0] // batch_size, epochs=aug_epochs2,
                         validation_data=val_batches, validation_steps=x_test.shape[0] // batch_size,
-                        use_multiprocessing=False, class_weight=class_weights, callbacks=[earlyStopping])
+                        use_multiprocessing=False, class_weight=class_weights)
 
 #############################################   Predicting  ####################################################
     y_predict = model.predict_classes(x_predict, batch_size=batch_size, verbose=0)

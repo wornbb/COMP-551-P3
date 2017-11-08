@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 def convert_y_to_vect(y):
     y_vect = np.zeros((len(y), 40))
     for i in range(len(y)):
-        y_vect[i, y[i]] = 1
+        y_vect[i, int(y[i])] = 1
     return y_vect
 
 
@@ -72,7 +72,7 @@ def train_nn(nn_structure, X, y, iter_num=3000, alpha=0.25):
     avg_cost_func = []
     print('Starting gradient descent for {} iterations'.format(iter_num))
     while cnt < iter_num:
-        if cnt%1000 == 0:
+        if cnt%10 == 0:
             print('Iteration {} of {}'.format(cnt, iter_num))
         tri_W, tri_b = init_tri_values(nn_structure)
         avg_cost = 0
@@ -115,10 +115,16 @@ def predict_y(W, b, X, n_layers):
 
 if __name__ == "__main__":
     # load data and scale
-    digits = load_digits()
-    X_scale = StandardScaler()
-    X = X_scale.fit_transform(digits.data)
-    y = digits.target
+    # digits = load_digits()
+    # X_scale = StandardScaler()
+    # X = X_scale.fit_transform(digits.data)
+    # y = digits.target
+    X = np.loadtxt("train_x.csv", delimiter=",")  # load from text
+    print("train_x is loaded")
+    y = np.loadtxt("train_y_preprocessed.csv", delimiter=",")
+    print("train_y is loaded")
+    # x_predict = np.loadtxt("test_x.csv", delimiter=",")
+    # print("test_x is loaded")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1)
     # convert digits to vectors
     y_v_train = convert_y_to_vect(y_train)
