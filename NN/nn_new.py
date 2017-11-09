@@ -27,7 +27,8 @@ class my_nn:
                  neuron_per_layer,
                  neuron_output,
                  neuron_function=sigmoid,
-                 gradient_step = 0.03,
+                 gradient_step = 0.15,
+                 la = 0.05,
                  random_method = gaussian,
                  loss_function = default):
         """
@@ -39,6 +40,12 @@ class my_nn:
         :param neuron_output: number of neuron in output layer (integer)
         :param random_method: the method used to initialize weight. Must be callable with 2 input arguments (a function)
         :param neuron_function: sigmoid or other neuron function (a function)
+
+                            w = copy.deepcopy(self.w)
+                    p1 = self.gradient_check_forward(x,w)
+                    w[layer][next_node] = w[layer][next_node] + 0.0001
+                    p2 = self.gradient_check_forward(x,w)
+                    self.delta[layer][next_node] = (p2-p1)/0.0001
         """
         # dimension match check
         if len(neuron_per_layer) > hidden_layers:
@@ -52,15 +59,18 @@ class my_nn:
         self.w = [random_method(self.structure[selected_layer],
                                 self.structure[selected_layer + 1])
                     for selected_layer in range(hidden_layers + 1)]   # one more iteration for output layer
+        self.dw = [random_method(self.structure[selected_layer],
+                                self.structure[selected_layer + 1])
+                    for selected_layer in range(hidden_layers + 1)]   # one more iteration for output layer
         self.neuron = neuron_function
         #self.neuron_v = np.vectorize(neuron_function)
         # store output for each layer, used for backprop
-        self.delta =  [np.empty(neurons) for neurons in self.structure[1:len(self.structure)]]
+        self.delta = [np.zeros([neurons]) for neurons in self.structure[1:len(self.structure)]]
         self.b = [np.zeros([neurons]) for neurons in self.structure[1:len(self.structure)]]
-        self.h = [np.empty([neurons]) for neurons in self.structure[1:len(self.structure)]]
-        self.a = [np.empty([neurons]) for neurons in self.structure[1:len(self.structure)]]
+        self.o = [np.zeros([neurons]) for neurons in self.structure[0:len(self.structure)]]
         self.step = gradient_step
         self.loss_function = loss_function
+        self.la = la
         #self.avg_cost = 0 # structure need to be changed to make plot available
     def predict(self, x):
         """
@@ -72,13 +82,12 @@ class my_nn:
         if len(x) != self.structure[0]:
             raise ValueError('Input dimension mismatch!!!')
         #self.h = [np.dot(input,self.w[layer]) for layer in range(len(self.structure)-1)]
+        self.o[0] = x
         for layer in range(len(self.structure) - 1):
-            self.a[layer] = x
-            a = np.dot(x, self.w[layer])
-            a = np.add(self.b[layer],a)
+            wx = np.dot(x, self.w[layer])
+            a = np.add(self.b[layer],wx)
             x = self.neuron.cal(a)
-            self.h[layer] = x
-            #self.a[layer] = a
+            self.o[layer+1] = x
         return x # a row of output
     def train(self,x,y,
               iteration = 5000):
@@ -90,16 +99,12 @@ class my_nn:
                 output = self.predict(x[train_sample])
                 self.backprop(x[train_sample],y[train_sample])
                 self.gradient_descent(x[train_sample])
-                self.avg_cost
      # Plotting
-                if current_iteration%100 == 0:
-                    #print(current_iteration/100)
-                    index = int(current_iteration/100)
-                    #error = default.cal(y[train_sample],self.h[2])
-                    #self.avg_cost[index]=error
-                    #p = plt.plot(range(iteration//100),self.avg_cost)
-                    #p.clear()
-                    #plt.show(block=False)
+            if current_iteration%100 == 0:
+                print(current_iteration/100)
+                index = int(current_iteration/100)
+                error = default.cal(y[train_sample],self.o[2])
+                #self.avg_cost[index]=error
         pickle.dump(self,open('trained_nn.nn','wb'))
         return 0
     def gradient_check_forward(self,x,w):
@@ -109,8 +114,13 @@ class my_nn:
         return x
     def gradient_descent(self,x):
         step_delta = [np.multiply(self.step,d) for d in self.delta]
-        dw = [np.multiply(step_d,np.vstack(a_view)) for step_d,a_view in zip(step_delta,self.a)]
-        self.w = [np.subtract(s_w,dwdw) for s_w,dwdw in zip(self.w,dw)]
+        for layer in range(len(self.structure) - 2, -1, -1):
+            for node in range(self.structure[layer]):
+                self.dw[layer][node,:] = np.multiply(self.neuron.cal(self.o[layer][node]),self.delta[layer])
+        buffer = [np.multiply(self.la, w) for w in self.w]
+        self.dw = [np.add(dw, b) for dw, b in zip(self.dw, buffer)]
+        self.dw = [np.multiply(self.step,dw) for dw in self.dw]
+        self.w = [np.subtract(s_w,dwdw) for s_w,dwdw in zip(self.w,self.dw)]
         self.b = [np.subtract(s_b,step_d) for s_b,step_d in zip(self.b,step_delta)]
         return 0
     def backprop(self,
@@ -121,37 +131,37 @@ class my_nn:
             for next_node in range(self.structure[layer+1]):
                 if layer == (len(self.structure)-2):
                     #self.delta[layer][next_node] = self.loss_function.dif(y,self.h[layer][next_node])*self.neuron.dif(self.h[layer][next_node])
-                    w = copy.deepcopy(self.w)
-                    p1 = self.gradient_check_forward(x,w)
-                    w[layer][next_node] = w[layer][next_node] + 0.0001
-                    p2 = self.gradient_check_forward(x,w)
-                    self.delta[layer][next_node] = (p2-p1)/0.0001
+                    self.delta[layer][next_node] = self.loss_function.dif(y,self.o[layer+1][next_node])*self.neuron.dif(self.o[layer+1][next_node])
                 else:
                     #self.delta[layer][next_node] = np.dot(self.w[layer+1][next_node,:], self.delta[layer+1])*self.neuron.dif(self.h[layer][next_node])
-                    w = copy.deepcopy(self.w)
-                    p1 = self.gradient_check_forward(x,w)
-                    w[layer][next_node] = w[layer][next_node] + 0.0001
-                    p2 = self.gradient_check_forward(x,w)
-                    self.delta[layer][next_node] = (p2-p1)/0.0001
+                    for sum_loop in range(self.structure[layer+2]):
+                        self.delta[layer][next_node] += self.delta[layer+1][sum_loop]*self.w[layer+1][next_node,sum_loop]*self.neuron.dif(self.o[layer+1][next_node])
         return 0
 
 if __name__ == "__main__":
     nn = my_nn(2,1,[1],1)
-    #x = np.array([[1,0,0,0,0,0,0,0],
-    ##             [0, 0, 1, 0, 0, 0, 0, 0],
-      #            [0, 0, 0, 1, 0, 0, 0, 0],
-       #           [0, 0, 0, 0, 1, 0, 0, 0],
-        #          [0, 0, 0, 0, 0, 1, 0, 0],
-         #         [0, 0, 0, 0, 0, 0, 1, 0],
-          #        [0, 0, 0, 0, 0, 0, 0, 1]])
-    x = np.array([[1,1],[1,0],[0,1],[0,0]])
-    y = np.array([1,0,0,0])
+    # x = np.array([[1,0,0,0,0,0,0,0],
+    #              [0, 0, 1, 0, 0, 0, 0, 0],
+    #             [0, 0, 0, 1, 0, 0, 0, 0],
+    #               [0, 0, 0, 0, 1, 0, 0, 0],
+    #              [0, 0, 0, 0, 0, 1, 0, 0],
+    #             [0, 0, 0, 0, 0, 0, 1, 0],
+    #            [0, 0, 0, 0, 0, 0, 0, 1]])
+    # y = np.array([[1,0,0,0,0,0,0,0],
+    #              [0, 0, 1, 0, 0, 0, 0, 0],
+    #             [0, 0, 0, 1, 0, 0, 0, 0],
+    #               [0, 0, 0, 0, 1, 0, 0, 0],
+    #              [0, 0, 0, 0, 0, 1, 0, 0],
+    #             [0, 0, 0, 0, 0, 0, 1, 0],
+    #            [0, 0, 0, 0, 0, 0, 0, 1]])
+    x = np.array([[0,0],[0,0],[0,0],[0,0]])
+    y = np.array([0,0,0,0])
     #nn = pickle.load(open('trained_nn.nn','rb'))
-    nn.train(x,y)
+    nn.train(x,y,4000)
     for k in range(4):
         p = nn.predict(x[k])
         print(p)
-    plt.show()
+
 
 
 
