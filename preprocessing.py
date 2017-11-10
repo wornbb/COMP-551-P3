@@ -1,6 +1,6 @@
 import csv
-
-r = csv.reader(open('train_y.csv')) # Here your csv file
+import pickle
+r = csv.reader(open('.\\Data\\train_y.csv')) # Here your csv file
 lines = [l for l in r]
 
 print(len(lines))
@@ -50,3 +50,4 @@ for i in range(len(lines)):
 
 writer = csv.writer(open('train_y_preprocessed.csv', 'w', newline=''))
 writer.writerows(lines)
+pickle.dump(lines,open('train_y_preprocessed','wb'))

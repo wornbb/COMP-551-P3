@@ -208,6 +208,7 @@ def main():
                   metrics=['accuracy'])
 
 ################################################    Training    ################################################
+
     earlyStopping = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0.001, patience=30, verbose=0, mode='min')
 
     model.fit(x_train, y_train,
